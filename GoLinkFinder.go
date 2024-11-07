@@ -146,31 +146,34 @@ func appendBaseUrl(urls []string, baseUrl string) []string {
 }
 
 func extractJSLinksFromHTML(baseUrl string) []string {
+    var resp, err = http.Get(baseUrl)
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer resp.Body.Close()
 
-	var resp, err = http.Get(baseUrl)
-	defer resp.Body.Close()
+    if resp.Body == nil {
+        log.Fatal("Response body is nil")
+    }
 
-	if err != nil {
-		log.Fatal(err)
+    goos, err := goquery.NewDocumentFromReader(resp.Body)
+    if err != nil {
+        log.Fatal(err)
+    }
 
-	}
+    var htmlJS = matchAndAdd(goos.Find("script").Text())
+    var urls = extractUrlFromJS(htmlJS, baseUrl)
 
-	goos, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
+    goos.Find("script").Each(func(i int, s *goquery.Selection) {
+        src, _ := s.Attr("src")
+        urls = append(urls, src)
+    })
 
-	var htmlJS = matchAndAdd(goos.Find("script").Text())
-	var urls = extractUrlFromJS(htmlJS, baseUrl)
-
-	goos.Find("script").Each(func(i int, s *goquery.Selection) {
-		src, _ := s.Attr("src")
-		urls = append(urls, src)
-	})
-
-	urls = appendBaseUrl(urls, baseUrl)
-	return urls
+    urls = appendBaseUrl(urls, baseUrl)
+    return urls
 }
+
+
 
 // prepares the final output by replacing \" and ' with ""
 func prepareResult(result []string) []string {
